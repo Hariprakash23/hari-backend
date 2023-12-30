@@ -71,7 +71,7 @@ userSchema.pre("save", async function(next) {
 userSchema.methods.isPasswordCorrect = async function(password) {
     // bcrypt can validate it
     //password jo ki user ne beja ha
-    // this.password wo h jo already saved h database me
+    // this.password wo h jo already saved h database me 
      return await bcrypt.compare(password,this.password)
 }
 

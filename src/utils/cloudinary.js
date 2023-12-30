@@ -1,6 +1,6 @@
 import {v2 as cloudinary} from 'cloudinary';
 import { response } from 'express';
-import fs from 'fs'
+import fs from "fs"
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUDNAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -13,8 +13,10 @@ try {
   const response = await cloudinary.uploader.upload(localFilePath,{
     resource_type: "auto"
   })
-  
-  console.log("File Uploaded Successfull",response.url)
+  // file uploaded successfully
+  // console.log("File Uploaded Successfull",response.url)
+
+  fs.unlinkSync(localFilePath)
   return response;
 
 
