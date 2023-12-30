@@ -3,7 +3,7 @@ import {ApiError} from "../utils/ApiError.js"
 import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
-
+import jwt from "jsonwebtoken"
 const generateAccessAndRefreshTokens = async (userId)=>{
 
    
@@ -25,6 +25,7 @@ const generateAccessAndRefreshTokens = async (userId)=>{
       throw new ApiError(500,"Something went wrong while generating refresh and access tokens")
     }
 }
+
 const registerUser = asyncHandler(async (req,res)=>{
 
     // get user details from backend
@@ -187,7 +188,6 @@ const loginUser = asyncHandler(async (req,res)=>{
  )
 })
 
-
 const logoutUser= asyncHandler(async (req,res)=>{
    // logout krenge lekin user kaha se leke au ? logout k time to hum email pass nhi maang sakte
    // hum apna ek middleware design krenge ( auth middleware)
@@ -221,4 +221,52 @@ const logoutUser= asyncHandler(async (req,res)=>{
          new ApiResponse(200,{},"User logged out sucessfully")
        )
 })
-export {registerUser,loginUser,logoutUser}
+
+const refreshAccessToken = asyncHandler(async (req,res)=>{
+   //access token ko refresh krna ha, jab bhi kabhi user refresh karayega to use uska refresh token bejna padega
+   // user freshtoken ko cookies k through bejega , cookies se beji h to hum usko req.cookie use krke access kr sakte h
+
+
+   const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken // ho sakta ha body se bhi bej de
+   if(incomingRefreshToken) {
+      throw new ApiError(401,"Unauthorized Request")
+   }
+
+   // JWt k throught verify krege, user k pas jo token ha wo encoded hai mtlb form alg h lekin verification me humko original lagegi
+   // to hum jwt k through usko decode kr rhe hai verify method se
+
+   try {
+      const decodedToken = jwt.verify(
+         incomingRefreshToken,
+         process.env.REFRESH_TOKEN_SECRET
+      )
+      // token generate kiye the tab ek id bhi assign ki thi ( user modal line no 100) 
+      // to hum is id k through user nikal sakte ha database me
+       const user = await  User.findById(decodedToken?._id)
+       if(!user) {
+         throw new ApiError(401,"Invalid refresh token")
+       }
+       // matching the tokens
+       if(incomingRefreshToken !== user?.refreshToken) {
+         throw new ApiError(401,"Refresh token is expired or used")
+       }
+   
+       //match hogye to fir new token generate kr denge
+       const options = {
+         httpOnly: true,
+         secure :true
+       }
+   
+       const {accessToken, newRefreshToken } =await generateAccessAndRefreshTokens(user._id)
+       return res
+       .status(200)
+       .cookie("accessToken",accessToken,options)
+       .cookie("refreshToken",newRefreshToken,options)
+       .json(
+         new ApiResponse(200,{accessToken,newRefreshToken},"Access token refreshed successfully")
+       )
+   } catch (error) {
+      throw new ApiError(401,error?.message||"invalid refresh token")
+   }
+})
+export {registerUser,loginUser,logoutUser,refreshAccessToken}
